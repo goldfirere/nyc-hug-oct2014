@@ -2,7 +2,8 @@
 
 {-# LANGUAGE PolyKinds, DataKinds, TypeOperators, TypeFamilies, GADTs,
              TemplateHaskell, ScopedTypeVariables, UndecidableInstances,
-             FlexibleContexts, ConstraintKinds, EmptyCase #-}
+             FlexibleContexts, ConstraintKinds, EmptyCase,
+             StandaloneDeriving #-}
 
 module OrdList where
 
@@ -148,6 +149,9 @@ toNat1 n = case compare n 0 of
                
 instance Show Nat1 where
   show = show . fromNat1
+
+-- Use the derived instance for Ord
+deriving instance Ord Nat1
 
 instance Arbitrary Nat1 where
   arbitrary = toNat1 . getNonNegative <$> arbitrary
@@ -302,7 +306,9 @@ $(singletons [d|
     (a:as, b:bs)
   |])
 
--- Some lemmas needed for split_min:
+-- Some lemmas needed for toOrdList:
+
+-- `min` is associative
 min_assoc :: forall (a :: k) (b :: k) (c :: k).
              SOrd ('KProxy :: KProxy k)
           => Sing a -> Sing b -> Sing c -> Min (Min a b) c :~: Min a (Min b c)
@@ -336,6 +342,7 @@ min_assoc a b c
       (SGT, SGT, SEQ) -> Refl
       (SGT, SGT, SGT) -> Refl
 
+-- `min` is commutative
 min_comm :: forall (a :: k) (b :: k).
             SOrd ('KProxy :: KProxy k)
          => Sing a -> Sing b -> Min a b :~: Min b a
@@ -351,24 +358,17 @@ min_comm a b
       (SGT, SEQ) -> case compare_eq b a of {}
       (SGT, SGT) -> case compare_anti_gt a b of {}
 
--- this version of Min has better reduction behavior
-type family MinWT a b where
-  MinWT (Value a) (Value b) = Value (Min a b)
-  MinWT Top       (Value b) = Value b
-  MinWT (Value a) Top       = Value a
-  MinWT Top       Top       = Top
-
-min_minWT :: forall (a :: WithTop k) (b :: WithTop k).
-             SOrd ('KProxy :: KProxy k)
-          => Sing a -> Sing b -> Min a b :~: MinWT a b
-min_minWT (SValue a) (SValue b) = case sCompare a b of
+-- minimum of values is the value of the minimum
+min_value_swap :: forall (a :: k) (b :: k).
+                  SOrd ('KProxy :: KProxy k)
+               => Sing a -> Sing b
+               -> Min (Value a) (Value b) :~: Value (Min a b)
+min_value_swap a b = case sCompare a b of
   SLT -> Refl
   SEQ -> Refl
   SGT -> Refl
-min_minWT STop       (SValue _) = Refl
-min_minWT (SValue _) STop       = Refl
-min_minWT STop       STop       = Refl
 
+-- splitting preserves minima
 split_min :: forall (elts :: [k]) (bs :: [k]) (cs :: [k]).
              ( SOrd ('KProxy :: KProxy k)
              , '(bs, cs) ~ Split elts )
@@ -378,36 +378,38 @@ split_min SNil = Refl
 split_min (_ `SCons` SNil) = Refl
 split_min (a `SCons` (b `SCons` rest))
   = case sSplit rest of
-      STuple2 (xs :: SList xs) (ys :: SList ys) ->
+      STuple2 xs ys ->
         case ( split_min rest
-             , min_minWT (sMinimumWithTop (a `SCons` xs))
-                         (sMinimumWithTop (b `SCons` ys)) ) of
+             , min_value_swap (sMinimum a xs) (sMinimum b ys) ) of
           (Refl, Refl) -> case (xs, ys, rest) of
             (SNil, SNil, SNil) -> Refl
             -- (SNil, SNil, SCons _ _) -> Refl
             -- (_, SCons _ _, SNil) -> Refl
             (SNil, SCons _ _, SCons _ _) -> Refl
             -- (SCons _ _, _, SNil) -> Refl
-            (SCons _ _, SNil, SCons a1 elts) ->
-              case ( min_assoc a (sMinimum a1 elts) b
-                   , min_comm b (sMinimum a1 elts) ) of
+            (SCons _ _, SNil, SCons r rs) ->
+              case ( min_assoc a (sMinimum r rs) b
+                   , min_comm b (sMinimum r rs) ) of
                 (Refl, Refl) -> Refl
-            (SCons a0 l, SCons a1 l0, SCons _ _) ->
-              case ( min_minWT (sMinimumWithTop xs) (sMinimumWithTop ys)
-                   , min_assoc a (sMinimum a0 l) (sMin b (sMinimum a1 l0))
-                   , min_assoc (sMinimum a0 l) b (sMinimum a1 l0)
-                   , min_comm b (sMinimum a0 l)
-                   , min_assoc b (sMinimum a0 l) (sMinimum a1 l0) ) of
+            (SCons x1 x1s, SCons y1 y1s, SCons _ _) ->
+              case ( min_value_swap (sMinimum x1 x1s) (sMinimum y1 y1s)
+                   , min_assoc a (sMinimum x1 x1s) (sMin b (sMinimum y1 y1s))
+                   , min_assoc (sMinimum x1 x1s) b (sMinimum y1 y1s)
+                   , min_comm b (sMinimum x1 x1s)
+                   , min_assoc b (sMinimum x1 x1s) (sMinimum y1 y1s) ) of
                 (Refl, Refl, Refl, Refl, Refl) -> Refl
             _ -> bugInGHC
 
+-- Now, we can convert an ordinary singleton list into an ordered one.
+-- This is the heart of mergesort.
 toOrdList :: forall (elts :: [k]).
              SOrd ('KProxy :: KProxy k)
           => SList elts -> OrdList (MinimumWithTop elts)
 toOrdList SNil = Nil
 toOrdList (a `SCons` SNil) = a ::: Nil
 toOrdList as = case sSplit as of
-  STuple2 bs cs -> case split_min as of Refl -> merge (toOrdList bs) (toOrdList cs)
+  STuple2 bs cs -> case split_min as of
+    Refl -> merge (toOrdList bs) (toOrdList cs)
 
 -- Convert an OrdList into an ordinary, non-singleton list.
 -- The SingKind class provides the key fromSing function, used below.
@@ -417,6 +419,9 @@ fromOrdList :: forall (e :: WithTop k).
 fromOrdList Nil        = []
 fromOrdList (a ::: as) = fromSing a : fromOrdList as
 
+-- Interface to mergeSort. Because we don't have kind families, we
+-- must explicitly name the promoted version of the type we're working
+-- with.
 mergeSort :: forall proxy_a a.
              ( proxy_a ~ ('KProxy :: KProxy a_pro)
              , SingKind proxy_a
@@ -426,8 +431,10 @@ mergeSort :: forall proxy_a a.
 mergeSort _ ls = case toSing ls :: SomeSing ('KProxy :: KProxy [a_pro]) of
   SomeSing sls -> fromOrdList (toOrdList sls)
 
+-- Convenient specializations
 mergeSortIntegers :: [Integer] -> [Integer]
 mergeSortIntegers = mergeSort (Proxy :: Proxy ('KProxy :: KProxy Nat))
 
 mergeSortNats :: [Nat1] -> [Nat1]
 mergeSortNats = mergeSort (Proxy :: Proxy ('KProxy :: KProxy Nat1))
+
