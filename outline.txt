@@ -1,0 +1,27 @@
+I. Current practice
+II. Current theory
+III. Future
+
+Current Practice (7:00-7:40)
+
+- Basic GADT example
+   + type families
+
+- Template Haskell example
+
+- Data.Type.Equality
+
+- Singleton naturals
+   + proof of associativity
+
+- modular math
+   + with TypeLits
+
+- Functional extensionality for QuickCheck
+   + should be done with instance chains!
+
+- Dependently-typed sorting algorithm
+   + quickCheck your dependently typed code!
+   + look! it's a dependently-typed merge sort!
+
+- units
