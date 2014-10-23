@@ -1,3 +1,9 @@
+{- Functional extensionality for QuickCheck: compare two functions with
+   an arbitrary number of parameters for equality.
+
+   Copyright (c) 2014 Richard Eisenberg
+  -}
+
 {-# LANGUAGE DataKinds, KindSignatures, TypeFamilies, GADTs,
              MultiParamTypeClasses, FlexibleContexts, FlexibleInstances,
              ConstraintKinds #-}
@@ -5,51 +11,59 @@
 module FunExtQC where
 
 import Test.QuickCheck
-import GHC.Exts
+import GHC.Exts        ( Constraint )
 
+-- Need natural numbers again, to count function arguments
 data Nat = Zero | Succ Nat
 
+-- Count the number of arguments from a function type
 type family CountArgs fun where
   CountArgs (a -> b) = Succ (CountArgs b)
   CountArgs b        = Zero
 
-data NumArgs :: * -> * where
-  NoArgs :: (Eq x) => NumArgs x
-  SomeArgs :: (HasArgs (CountArgs y) y) => NumArgs (x -> y)
+-- convenient syntax for stating that we know how many args
+-- `fun` has:
+type KnownArgs fun = NumArgsC (CountArgs fun) fun
 
-class CountArgs fun ~ num => HasArgs num fun where
-  hasArgs :: fun -> NumArgs fun
+-- A GADT tracking the number of arguments a function type has
+data NumArgsG :: * -> * where
+  NoArgs   :: Eq x => NumArgsG x    -- Eq x, because the result must be in Eq
+  SomeArgs :: KnownArgs y => NumArgsG (x -> y)
 
-instance (CountArgs fun ~ Zero, Eq fun) => HasArgs Zero fun where
-  hasArgs _ = NoArgs
+-- Use a class so that the number of args can be inferred
+class CountArgs fun ~ num => NumArgsC num fun where
+  numArgs :: fun -> NumArgsG fun
+instance (CountArgs fun ~ Zero, Eq fun) => NumArgsC Zero fun where
+  numArgs _ = NoArgs
+instance (CountArgs y ~ n, NumArgsC n y) => NumArgsC (Succ n) (x -> y) where
+  numArgs _ = SomeArgs
 
-instance (CountArgs y ~ n, HasArgs n y) => HasArgs (Succ n) (x -> y) where
-  hasArgs _ = SomeArgs
+-- Map a class constraint over the args to a function
+type family MapClassArgs cls fun_ty :: Constraint where
+  MapClassArgs cls (a -> b) = (cls a, MapClassArgs cls b)
+  MapClassArgs cls b        = ()
 
-type family Arbs fun :: Constraint where
-  Arbs (x -> y) = (Arbitrary x, Arbs y)
-  Arbs y        = ()
-
-type family MapClassArgs f fun_ty :: Constraint where
-  MapClassArgs f (a -> b) = (f a, MapClassArgs f b)
-  MapClassArgs f b        = ()
-
-(~=~) :: (HasArgs (CountArgs fun) fun, MapClassArgs Arbitrary fun, MapClassArgs Show fun)
+-- Functional extensionality for QuickCheck
+(~=~) :: ( KnownArgs fun
+         , MapClassArgs Arbitrary fun
+         , MapClassArgs Show fun )
       => fun -> fun -> Property
-f ~=~ g = case hasArgs f of
-  NoArgs -> property (f == g)
-  SomeArgs -> property $ do
+f ~=~ g = case numArgs f of
+  NoArgs -> property (f == g)         -- base case
+  SomeArgs -> property $ do           -- recursive case
     x <- arbitrary
     return (counterexample (show x) $
             f x ~=~ g x)
 infix 4 ~=~
 
+
+-- convenient functions for testing
 splotch :: Int -> Bool -> Char -> String
 splotch x y z = show x ++ show y ++ show z
 
 splotch2 :: Int -> Bool -> Char -> String
 splotch2 x y z
-  | z == 'A'  = ""
+  | x > 10  = ""
   | otherwise = show x ++ show y ++ show z
 
 

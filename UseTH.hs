@@ -7,10 +7,12 @@
 
 module UseTH where
 
-import           TH
 import qualified Data.Set      as Set
 import           Data.Monoid
 import           Data.Foldable
+
+import           Language.Haskell.TH
+type LetDec = Dec
 
 allNamesBoundExp :: Exp -> Set.Set Name
 allNamesBoundExp = go

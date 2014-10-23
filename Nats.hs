@@ -52,7 +52,7 @@ fromSNat :: SNat n -> Integer
 fromSNat SZero     = 0
 fromSNat (SSucc n) = succ $ fromSNat n
 
--- A proof that addition is associative.
+-- A "proof" that addition is associative.
 plus_assoc :: SNat n -> SNat m -> SNat p -> (n + m) + p :~: n + (m + p)
 plus_assoc SZero _ _ = Refl
 plus_assoc (SSucc n') m p

@@ -2,7 +2,8 @@
 -}
 
 {-# LANGUAGE DataKinds, KindSignatures, ScopedTypeVariables, GADTs,
-             TypeOperators, ConstraintKinds, UndecidableInstances #-}
+             TypeOperators, ConstraintKinds, UndecidableInstances,
+             RoleAnnotations #-}
 
 module Mods where
 
@@ -10,6 +11,7 @@ import Nats
 
 newtype ZMod (n :: Nat) = ZMod Integer
   deriving Show
+type role ZMod nominal
 
 instance (n > Zero, SNatI n) => Num (ZMod n) where
   (ZMod a) + (ZMod b) = ZMod $ (a + b) `mod` fromSNat (sNat :: SNat n)

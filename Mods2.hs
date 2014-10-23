@@ -2,7 +2,7 @@
 -}
 
 {-# LANGUAGE KindSignatures, DataKinds, ScopedTypeVariables, TypeOperators,
-             TypeFamilies #-}
+             TypeFamilies, RoleAnnotations #-}
 
 module Mods2 where
 
@@ -11,6 +11,7 @@ import Data.Proxy
 
 newtype ZMod (n :: Nat) = ZMod Integer
   deriving Show
+type role ZMod nominal
 
 instance (1 <= n, KnownNat n) => Num (ZMod n) where
   (ZMod a) + (ZMod b) = ZMod $ (a + b) `mod` natVal (Proxy :: Proxy n)

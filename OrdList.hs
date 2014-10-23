@@ -1,4 +1,8 @@
--- A type of a list that is statically known to be in non-decreasing order.
+{- A type of a list that is statically known to be in non-decreasing order,
+   used to implement a dependently-typed mergesort.
+
+   Copyright (c) 2014 Richard Eisenberg
+  -}
 
 {-# LANGUAGE PolyKinds, DataKinds, TypeOperators, TypeFamilies, GADTs,
              TemplateHaskell, ScopedTypeVariables, UndecidableInstances,
@@ -7,6 +11,8 @@
 
 module OrdList where
 
+                                  -- as of singletons-1.0, singleton's Ord
+                                  -- generation is broken, so we do it by hand
 import Data.Singletons.TH          hiding ( POrd(..) )
 import Data.Singletons.Prelude     hiding ( POrd(..), SOrd(..)
                                           , MinSym0, MinSym1, MinSym2 )
@@ -241,6 +247,7 @@ data OrdList :: WithTop k -> * where
   (:::) :: (Value e1 < e2) => Sing e1 -> OrdList e2 -> OrdList (Value e1)
 infixr 5 :::
 
+-- example, showing that the definition works:
 sZero  = sing :: Sing (U 0)
 sOne   = sing :: Sing (U 1)
 sTwo   = sing :: Sing (U 2)
