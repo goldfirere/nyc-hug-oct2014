@@ -8,10 +8,11 @@ import Data.Metrology
 import Data.Metrology.SI
 import Data.Units.US
 
-import Data.Metrology.Show
+-- Just for debugging / demonstration purposes
+import Data.Metrology.Show ()
 
 journeyTime :: Length -> Velocity -> Time
-journeyTime l v = l |/| v
+journeyTime len v = len |/| v
 
 nycToPhilly :: Length
 nycToPhilly = 155.6 % kilo Meter

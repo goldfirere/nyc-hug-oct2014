@@ -4,7 +4,7 @@
 {-# LANGUAGE KindSignatures, DataKinds, ScopedTypeVariables, TypeOperators,
              TypeFamilies, RoleAnnotations #-}
 
-module Mods2 where
+module Mods2 ( ZMod ) where
 
 import GHC.TypeLits
 import Data.Proxy

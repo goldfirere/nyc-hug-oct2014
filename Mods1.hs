@@ -5,7 +5,7 @@
              TypeOperators, ConstraintKinds, UndecidableInstances,
              RoleAnnotations #-}
 
-module Mods where
+module Mods1 ( ZMod ) where
 
 import Nats
 
