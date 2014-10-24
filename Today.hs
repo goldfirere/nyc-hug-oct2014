@@ -1,15 +1,21 @@
-{-# LANGUAGE TypeFamilies, GADTs, PolyKinds, DataKinds, ScopedTypeVariables,
-             StandaloneDeriving, TemplateHaskell, TypeOperators,
+{-# LANGUAGE TypeFamilies, GADTs, PolyKinds, DataKinds,
+             ScopedTypeVariables, StandaloneDeriving,
+             TemplateHaskell, TypeOperators,
              UndecidableInstances #-}
 
 module Today where
 
 import Prelude            hiding ( replicate )
 import Data.Singletons.TH
+import GHC.TypeLits       ( type (-) )
 
 $(singletons [d|
   data Nat = Zero | Succ Nat
   |])
+
+type family U n where
+  U 0 = Zero
+  U n = Succ (U (n-1))
 
 data Vec :: * -> Nat -> * where
   Nil   :: Vec a Zero

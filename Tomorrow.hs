@@ -4,9 +4,9 @@ module Tomorrow where
 
 import Prelude hiding ( replicate )
 
-data Vec :: U -> Integer -> U where
+data Vec :: * -> Integer -> * where
   Nil   :: Vec a 0
-  (:::) :: a -> Vec a n -> Vec a (1 + n)
+  (:::) :: a -> Vec a n -> Vec a (1 '+ n)
 infixr 5 :::
 deriving instance Show a => Show (Vec a n)
 
@@ -17,7 +17,7 @@ replicate    x = x ::: replicate x
 x3 :: Vec Char 3
 x3 = replicate 'x'
 
-data FList :: (k -> U) -> [k] -> U where
+data FList :: (k -> *) -> [k] -> * where
   FNil  :: FList f '[]
   FCons :: f h -> FList f t -> FList f (h ': t)
 
